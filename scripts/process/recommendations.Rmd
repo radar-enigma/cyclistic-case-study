@@ -1,0 +1,54 @@
+---
+title: "Phase 6: ACT"
+author: "Ed"
+output:
+  html_document:
+    code_folding: hide
+---
+
+## Phase 6: ACT  
+
+### Recommendations
+
+
+**As demonstrated through the analysis in this case study, we arrive at a key conclusion: increasing annual membership alone is not a guaranteed path to profitability. While members contribute consistently to system usage, their flat-rate pricing model and high ride frequency place a disproportionate load on the fleet without generating proportional revenue. In contrast, casual riders—who pay per minute—contribute significantly more to revenue, with earnings that scale directly with usage.**
+
+**This leads us to three strategic recommendations:**
+<br>
+<br>
+
+#### 1. Two-Fold Action: Focus on Casual Riders / Cap Membership Growth
+
+As a team, we have identified that casual riders generate more revenue per trip and place fewer long-term demands on system resources. We recommend prioritizing marketing efforts toward tourists, occasional riders, and event-driven users. At the same time, we should implement a cap on the number of annual memberships to safeguard system performance and ensure ride availability.
+
+Overextending the fleet with locked-in members could lead to decreased service quality and a strained user experience.
+
+💡 **Strategic Insight:**  
+“Casual riders operate under a pay-per-use model—revenue scales with activity.  
+Members are on a flat-rate model—revenue is fixed no matter how much they ride.  
+Converting high-usage casuals into members means trading scalable income for capped returns.”
+
+🧭 **Important Note on Member Value:**  
+While members may not maximize short-term revenue, they bring intangible value as **brand ambassadors**. Their visibility across the city enhances Cyclistic’s public presence, credibility, and community trust. We believe memberships should be optimized—not eliminated—ensuring they grow in alignment with system capacity and strategic objectives.
+
+<br>
+<br>
+
+#### 2. Offer Premium Casual Packages Instead of Pushing Conversions
+
+We propose the development of flexible, high-margin ride options that cater to the behavior of casual users. These may include multi-day passes, ride bundles, or locally tailored tourist packages. By maintaining the pay-per-use model, we preserve revenue scalability while meeting the needs of high-value casual riders—without requiring long-term commitment.
+
+<br>
+<br>
+
+#### 3. Invest in Understanding the Casual Base
+
+To better support this strategy, we recommend initiatives that deepen our understanding of the casual segment. This could include optional in-app surveys or strategic partnerships with tourism boards to gain insights into user intent, residency status, and spending habits. Ultimately, we cannot design meaningful experiences—or profitable campaigns—if we don’t understand who we’re serving.
+
+<div align="center" style="font-size: 1.5em; font-style: italic; margin-top: 20px;">
+  Let rides—not loyalty—drive revenue.
+</div>
+
+<br>
+<br>
+<br>

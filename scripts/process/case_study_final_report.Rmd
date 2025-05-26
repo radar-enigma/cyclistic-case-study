@@ -1,0 +1,258 @@
+---
+title: "Case study: How does a bike-share navigate speedy success?"
+author: "Edgardo Bansale"
+date: "21 May 2025"
+output:
+  html_document:
+    code_folding: hide
+    cache: true
+    always_allow_html: true
+    toc: true
+    toc_depth: 3
+---
+```{r run-libraries, child = "00_load_libraries.Rmd", include=FALSE}
+
+```
+<br>
+<br>
+
+<img src="cyclistic_logo.png" style="float: left; width: 1in; height: 1in; margin-right: 10px;" />
+
+### About the Company
+
+In 2016, Cyclistic launched a successful bike-share offering. Since then, the program has grown to a fleet of 5,824 bicycles that are geotracked and locked into a network of 692 stations across Chicago. The bikes can be unlocked from one station and returned to any other station in the system anytime.
+
+Until now, Cyclistic’s marketing strategy relied on building general awareness and appealing to broad consumer segments. One approach that helped make these things possible was the flexibility of its pricing plans: single-ride passes, full-day passes, and annual memberships. Customers who purchase single-ride or full-day passes are referred to as casual riders. Customers who purchase annual memberships are Cyclistic members. 
+
+Cyclistic’s finance analysts have concluded that annual members are much more profitable than casual riders. Although the pricing flexibility helps Cyclistic attract more customers, Moreno believes that maximizing the number of annual members will be key to future growth. Rather than creating a marketing campaign that targets all-new customers, Moreno believes there is a solid opportunity to convert casual riders into members.
+
+She notes that casual riders are already aware of the Cyclistic program and have chosen Cyclistic for their mobility needs. Moreno has set a clear goal: Design marketing strategies aimed at converting casual riders into annual members. In order to do that, however, the team needs to better understand:
+
+ - 1. how annual members and casual riders differ; 
+ - 2. why casual riders would buy a membership, and 
+ - 3. how digital media could affect their marketing tactics.
+<br>
+<br>
+<br>
+
+## Phase 1:  ASK
+
+### Business Task Statement:
+
+The goal of this analysis is focused on the first question - to understand the behavioral differences between Cyclistic’s casual riders and annual members. This forms the foundation for data-driven strategies that aim to increase rider engagement, grow subscription rates, and enhance operational efficiency. The findings will directly inform the work of Cyclistic’s marketing team, whom rely on accurate behavioral insights to make impactful decisions. Ultimately, these insights will feed into the strategic decision-making of the Cyclistic executive team, who must approve any major shifts in direction.
+
+#### Given this focus, we ask a critical question: How do the usage patterns of casual and member riders differ, and can those differences guide us in designing smarter strategies to either convert more casuals into members or find new ways to enhance revenue from existing rider segments?
+<br>
+<br>
+
+## Phase 2:  PREPARE
+In this stage, we assessed data integrity and structure, ensuring it was relevant, complete, and ready for analysis. We also documented key metadata and identified potential limitations in the dataset.
+
+**a) Data Location:** Public Divvy bike-share dataset, downloaded from Divvy’s official data portal.
+
+**b) Organization:** Multiple CSV files by quarter/year, each containing ride details—timestamps, start/end stations, lat-long, user type (member or casual), and trip duration.
+
+**c) Data Credibility & Bias:**
+The data comes from a real-world bike-share system operated by a reputable company, making it operationally reliable. However, it lacks personal identifiers such as user demographics or residency details, which limits the ability to analyze motivations or user segmentation beyond ride behavior.
+
+<div style="text-align: left; text-justify: auto; margin-left: 20px;">
+
+Dataset Used for This Case Study:  
+Files: 202501-divvy_trip_data.csv to 202504-divvy_trip_data.csv  
+
+**Reasons for Excluding Other Provided Datasets:**  
+
+1. The 2019 dataset uses a different schema compared to 2020. For example, 2019 includes columns like gender and birthyear, which are missing in 2020. It also classifies users as Customer and Subscriber instead of using the standardized casual and member labels. These structural inconsistencies make direct comparison and integration difficult without heavy pre-processing.  
+
+2. The 2024 dataset, while complete, contained a high volume of data quality issues—hundreds of rows required deletion, which would compromise the integrity of the analysis.  
+
+3. The 2025 datasets were chosen for their cleaner structure and minimal preprocessing requirements, making them more practical and reliable for this case study.  
+
+</div>
+
+**d) Privacy & Licensing:** Anonymized dataset shared publicly with open license; no PII included, compliant with privacy standards.
+
+**e) Integrity Checks:** Verified for valid lat-long ranges, no duplicated trip IDs, and consistent timestamp formats.
+
+**f) Data Problems:** Missing user demographics, no residency info (tourist vs. local unknown), and no direct marketing exposure data—limiting deeper causal analysis.
+<br>
+<br>
+<br>
+
+## Phase 3:  PROCESS
+We cleaned and transformed the data by removing duplicates, standardizing formats, checking logical consistency, and flagging anomalies. This step ensured a reliable dataset for accurate analysis.
+
+**a) Tools Chosen:**  utilized R (with tidyverse packages) for robust data wrangling, cleaning, and analysis—great for handling large datasets and reproducible workflows.
+
+**b) Checking for Data Integrity and Cleaning Steps**
+
+ 1.  Ensured that all files have matching schema[^1] before merging[^2] the raw CSV data using bind_rows()
+ 
+```{r run-schema-check, include=TRUE, echo=TRUE, message=FALSE, warning=FALSE}
+library(readr)
+library(here)
+
+# --- Run Schema Check ---
+raw_data_path <- "raw_2025"
+all_files <- list.files(path = here(raw_data_path), pattern = "\\.csv$", full.names = TRUE)
+
+if (length(all_files) == 0) {
+  stop("No CSV files found in the specified raw data directory.")
+}
+
+first_schema <- colnames(read_csv(all_files[1], n_max = 1, show_col_types = FALSE))
+
+check_schema <- function(file) {
+  cols <- colnames(read_csv(file, n_max = 1, show_col_types = FALSE))
+  identical(cols, first_schema)
+}
+
+schema_results <- sapply(all_files, check_schema)
+names(schema_results) <- basename(all_files)
+
+# Save schema check results
+clean_data_path <- "clean_2025"
+saveRDS(schema_results, here(clean_data_path, "schema_check_results.rds"))
+```
+
+```{r display-schema-check-result, echo=FALSE, message=FALSE, warning=FALSE}
+library(here)
+clean_data_path <- "clean_2025"
+schema_results <- readRDS(here(clean_data_path, "schema_check_results.rds"))
+
+cat("## Schema Check Results\n\n")
+if (all(schema_results)) {
+  cat("✅ All raw data files have compatible schemas.\n")
+} else {
+  cat("⚠️ Schema mismatch detected in the following files:\n\n")
+  mismatched_files <- names(schema_results)[!schema_results]
+  cat(paste("-", mismatched_files, collapse = "\n"))
+  cat("\n")
+}
+```
+
+```{r merge-raw-data, echo=TRUE, message=FALSE, warning=FALSE}
+library(dplyr)
+source("2_merge_raw_files.R")
+```
+ 2.  Removed duplicate[^3] trip IDs with distinct() – used ride_id to trim/strip spaces and drop duplicate IDs so every ride is unique.
+```{r step-01-remove-duplicates, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_01_remove_ride_id_duplicates.R")
+```
+
+ 3.  Trim white space[^4] – ran a global str_trim on all character columns (e.g. station names, rideable_type) to kill stray spaces that break joins or groupings.
+
+
+```{r step-02-trim-whitespace, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_02_trim_whitespace.R")
+```
+
+ 4. Removed Exact Duplicates[^5] – checked every column for full‐row duplicates and kept only the first copy to avoid double-counting.
+
+```{r step-03-remove_exact_duplicates, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_03_remove_exact_duplicates.R")
+```
+
+ 5. Standardized column names[^6] -- (tolower(), underscores) and key categorical fields like member_casual and rideable_type so you’re not matching “Member” with “member.”
+
+```{r step-04-standardize-columns, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_04_standardize_columns.R")
+```
+
+  6. Check Logical Values[^7] – created ride_length (via ended_at – started_at) and flagged any durations ≤ 0 (impossible times) so you know which rows to inspect.
+
+```{r step-05-verify-logical-values, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_05_verify_logical_values.R")
+```
+
+ 7. Checked for NA values[^8] with summary()  – looked for blanks or NAs in essential fields (ride_id, member_casual, started_at, ended_at) and quarantined them without deleting.
+
+```{r step-06-missing-critical-fields-check, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_06_missing_critical_fields_check.R")
+```
+
+ 8. Confirmed consistent date-time formats[^9] via lubdriate:  – parsed started_at  and ended_at, ensured they’re valid and that start precedes end, and saved bad ones for review.
+
+```{r step-07-date-time-check-update, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_07_Date_time_check_update.R")
+```
+
+9. Used filters to validate lat-long ranges[^10] – checked start_lat, start_lng (and end coords if used) to confirm they’re within ±90/±180, flagging any that fall outside real-world ranges.
+	
+```{r step-08-lat-long-check, echo=TRUE, message=FALSE, warning=FALSE}
+source("step_08_lat_long_check.R")
+```
+
+**c) Verification:** Each cleaning step was verified by its own summary report, and all were collated into a final report table showing rows before/after, affected counts, and deletion status (shown below). Conducted summary statistics (mean(), max(), table()) and visual checks (glimpse(), head()) before and after cleaning.
+
+```{r finalize-report, echo=FALSE, results='asis', message=FALSE, warning=FALSE}
+library(dplyr)
+library(readr)
+library(knitr)
+library(kableExtra)
+
+report_dir <- "d:/capstone_project/cyclistic_v3/clean_2025"
+report_files <- list.files(path = report_dir, pattern = "step_\\d{2}_report\\.csv$", full.names = TRUE)
+
+final_report <- report_files %>%
+  lapply(read_csv, show_col_types = FALSE) %>%
+  bind_rows()
+
+kable(final_report, format = "html", align = "c", caption = "Summary of Cleaning Steps") %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "hover", "condensed", "responsive")
+  ) %>%
+  row_spec(0, bold = TRUE)
+```
+**Table 3.1 - Summary of Cleaning Steps** Lists the data cleaning process applied to the dataset. Across eight steps, the total number of rows remained constant at 960,065, indicating no records were deleted. Minor issues were identified in step 7 with 3 rows flagged for date-time inconsistencies, but these were not removed. Other steps, including removing duplicates, trimming whitespace, and checking logical values, found no affected rows. Overall, the dataset remained intact, with only minimal data quality flags noted but no deletions performed.
+
+<br>
+
+**d) Documentation:** All steps were meticulously scripted in an R Markdown file, ensuring that the entire cleaning process remains transparent, reproducible, and easy to audit. Each step— from data loading to issue checks—was clearly annotated and executed in sequence, with outputs and summary tables included for verification. This very report is the final product of that documentation effort: a structured, shareable artifact that communicates not only the outcomes but also the logic and rigor behind every cleaning decision made along the way.
+
+<br>
+
+```{r child='../analysis/Descriptive Analysis - Cyclistic Case Study.Rmd'}
+
+```
+
+```{r child='insights.Rmd'}
+
+```
+
+
+
+## Phase 5: SHARE
+
+In this phase, the findings were compiled into a well-structured, visually compelling report tailored for Cyclistic’s analytics team. With a focus on clarity and impact, the visualizations highlighted key behavioral differences between casual riders and annual members—such as ride durations, frequency, and peak usage times. Each element was designed to guide the viewer’s attention to insights that could inform strategic decisions, particularly those related to membership growth. The report maintained accessibility and polish to ensure it communicated effectively across stakeholders.
+
+To ensure accessibility, this .Rmd report was designed with clear headings, simple language, alt text for images, and structured formatting so that all stakeholders—including those using assistive technologies—can easily navigate and understand the findings.
+
+This completed case study is intended for presentation to the marketing director and, ultimately, for approval by Cyclistic’s executive team. It answers the central business question while setting the stage for actionable next steps. These insights now pave the way for Phase 6—where data-driven strategies can be implemented to optimize engagement, increase conversions, and enhance Cyclistic’s service offerings.
+<br>
+<br>
+<br>
+---
+```{r child='recommendations.Rmd'}
+```
+<br>
+<br>
+
+### About the Author
+
+Edgar has a background in entrepreneurship and business consulting, with diverse experience across infrastructure, data analytics, and organizational development. He is focused on applying data-driven insights to enhance strategy, performance, and impact in both public and private sector projects.
+
+### Footnotes
+
+[^1]: Read script [Here](1_schema_check.R)  1_schema_check.R
+[^2]: Read script [Here](2_merge_raw_files.R)  2_merge_raw_files.R
+[^3]: Read script [Here](step_01_remove_id_duplicates.R)  step_01_remove_id_duplicates.R
+[^4]: Read script [Here](step_02_trim_whitespace.R)  step_02_trim_whitespace.R
+[^5]: Read script [Here](step_03_remove_exact_duplicates.R)  step_03_remove_exact_duplicates.R  
+[^6]: Read script [Here](step_04_standardize_columns.R)  step_04_standardize_columns.R
+[^7]: Read script [Here](step_05_verify_logical_values.R)  step_05_verify_logical_values.R
+[^8]: Read script [Here](step_06_missing_critical_fields_check.R)  step_06_missing_critical_fields_check.R
+[^9]: Read script [Here](step_07_Date_time_check_update.R)  step_07_Date_time_check_update.R
+[^10]: Read script [Here](step_08_lat_long_check.R) step_08_lat_long_check.R

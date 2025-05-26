@@ -1,0 +1,14 @@
+```{r load-libraries, echo=FALSE, cache=TRUE}
+# Essential for data manipulation and wrangling
+library(dplyr)
+library(tidyr)
+
+# For reading CSV files
+library(readr)
+
+# For working with dates and times
+library(lubridate)
+
+# For file paths
+library(here)
+```

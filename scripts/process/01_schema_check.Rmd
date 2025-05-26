@@ -1,0 +1,29 @@
+# This script checks the schema (column names) compatibility of all CSV files
+# located in the 'data_raw/' directory. It reads the first few rows of each
+# file, compares the column names to the first file, reports any mismatches,
+# and saves the schema check results to 'data_clean/schema_check_results.rds'.
+# Load merged raw files info (adjust path if needed)
+raw_files <- list.files("data_raw/", pattern = "\\.csv$", full.names = TRUE)
+
+# Read first file to get schema
+first_schema <- colnames(read_csv(raw_files[1], n_max = 10))
+
+# Function to check schema compatibility
+check_schema <- function(file) {
+  cols <- colnames(read_csv(file, n_max = 10))
+  identical(cols, first_schema)
+}
+
+# Run schema check on all files
+schema_results <- sapply(raw_files, check_schema)
+
+# Report
+if (all(schema_results)) {
+  message("✅ All raw files have compatible schemas.")
+} else {
+  warning("⚠️ Schema mismatch detected in the following files:")
+  print(raw_files[!schema_results])
+}
+
+# Save schema check result summary
+saveRDS(schema_results, "data_clean/schema_check_results.rds")

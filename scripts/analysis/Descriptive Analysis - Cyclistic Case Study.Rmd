@@ -1,0 +1,314 @@
+---
+title: "Descriptive Analysis - Cyclistic Case Study"
+author: "Ed"
+output:
+  html_document:
+    code_folding: hide
+---
+## Phase 4: ANALYZE
+
+In this stage, we analyzed usage trends to uncover real behavioral patterns between casual riders and members. Members leaned toward short, frequent weekday rides—classic commuter behavior—while casuals showed a preference for longer weekend trips. 
+
+**Given that casuals ride on a pay-per-use basis, these patterns hint at a different kind of value. This challenges the assumption that more members automatically mean more profit, and raises the question: who’s really paying the bills?**
+
+**Load Libraries**
+```{r setup, message=FALSE, cache=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+```
+**Load Cleaned Data**
+```{r load data, message=FALSE}
+library(readr)
+data <- read_csv("D:/Capstone_Project/Cyclistic_v3/clean_2025/merged_2025.csv", show_col_types = FALSE, progress = FALSE)
+
+```
+**Add new header:  ride_duration**
+```{r compute-ride-duration, message=FALSE}
+library(dplyr)
+data <- data %>%
+  mutate(ride_duration = as.numeric(difftime(ended_at, started_at, units = "mins")))
+
+```
+**Check mean_ride and max_ride exists**
+```{r get mean and max ride duration, message=FALSE}
+# Mean and max ride_duration
+mean_ride <- mean(data$ride_duration, na.rm = TRUE)
+max_ride <- max(data$ride_duration, na.rm = TRUE)
+
+```
+
+### Stats Summary
+
+```{r stats-summary, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(here)
+library(knitr)
+library(kableExtra)
+
+# Load data
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+updated_data <- readRDS(updated_file_path)
+
+# Summarize
+ride_duration_summary <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(
+    Mean_Duration = mean(ride_duration, na.rm = TRUE),
+    Median_Duration = median(ride_duration, na.rm = TRUE),
+    SD_Duration = sd(ride_duration, na.rm = TRUE),
+    Min_Duration = min(ride_duration, na.rm = TRUE),
+    Max_Duration = max(ride_duration, na.rm = TRUE),
+    N_Rides = n()
+  )
+
+# Show clean table
+ride_duration_summary %>%
+  kable(caption = "Ride Duration Summary by Rider Type", digits = 2) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+**Table 4.1 - Riders' Stats** This summary shows that casual riders take longer trips on average (mean: 19.82 minutes) compared to members (mean: 10.88 minutes), with casuals also having a much wider spread in ride durations (SD: 80.22 vs. 26.03). Casual rides have a higher maximum duration, and their median ride time (9.40 minutes) is slightly above that of members (7.48 minutes), suggesting more variability and potentially more leisurely or exploratory usage.
+<br>
+<br>
+<br>
+
+```{r mean-ride-duration-plot, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(ggplot2)
+
+ggplot(ride_duration_summary, aes(x = member_casual, y = Mean_Duration, fill = member_casual)) +
+  geom_col(width = 0.6) +
+  geom_text(aes(label = round(Mean_Duration, 1)), vjust = -0.5) + # Add text labels
+  labs(
+    title = "Average Ride Duration by Rider Type",
+    x = "Rider Type",
+    y = "Mean Duration (minutes)"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99")) +
+  theme(legend.position = "none")
+```
+
+**Chart 4.1 - Average Ride Duration by Rider Type:**  This chart shows that casual riders spend nearly twice as long per ride (avg. ~20 mins) compared to members (~11 mins). This suggests members use bikes for quick, possibly utilitarian trips—like commuting—while casual riders likely use them for leisurely or exploratory purposes, consistent with tourist or weekend behavior. It hints at different motivations and use cases between the groups, which marketing can exploit.
+<br>
+<br>
+<br>
+
+```{r total number of rides per Rider Type, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(ggplot2)
+
+ggplot(ride_duration_summary, aes(x = member_casual, y = N_Rides, fill = member_casual)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_text(aes(label = scales::comma(N_Rides)), vjust = 1.5, color = "white", size = 5) +
+  labs(title = "Total Number of Rides by Rider Type",
+       x = "User Type",
+       y = "Number of Rides") +
+  theme_minimal() +
+  scale_fill_manual(values = c("member" = "#1f77b4", "casual" = "#ff7f0e")) +
+  theme(legend.position = "none")
+
+
+```
+
+**Chart 4.2 - Total Number of Rides per Rider Type:** This chart shows members take far more rides than casuals, emphasizing their loyalty and consistent platform use. However, members’ longer or shorter ride durations don’t affect revenue directly since they pay a fixed annual fee. For casual riders, ride duration multiplied by the per-ride fee directly translates into revenue, making each casual ride’s length more financially significant. So, members drive steady value through commitment, while casuals impact revenue through ride frequency and duration.
+<br>
+<br>
+<br>
+
+```{r Average Ride Duration per Rider Type, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+ggplot(ride_duration_summary, aes(x = member_casual, y = Mean_Duration, fill = member_casual)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_text(aes(label = round(Mean_Duration, 2)), vjust = -0.5, size = 5) +
+  labs(title = "Average Ride Duration by Rider Type",
+       x = "User Type",
+       y = "Average Ride Duration (minutes)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("member" = "#1f77b4", "casual" = "#ff7f0e")) +
+  theme(legend.position = "none")
+
+```
+
+**Chart 4.3 - Average Ride Duration** This chart illustrates that casual riders have a higher average ride duration compared to members. Casuals likely take longer, leisurely trips—often tourists or occasional users—whereas members generally make shorter, more frequent rides. This difference reflects usage patterns but does not directly translate to revenue for members, who pay a fixed annual fee.
+
+<br>
+<br>
+<br>
+
+```{r Casuals Hotspots, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+
+# Filter only casual riders and count top 10 start stations
+top_stations <- updated_data %>%
+  filter(member_casual == "casual", !is.na(start_station_name)) %>%
+  count(start_station_name, sort = TRUE) %>%
+  slice_max(n, n = 10)
+
+# Plot
+ggplot(top_stations, aes(x = reorder(start_station_name, n), y = n)) +
+  geom_col(fill = "#2c7fb8") +
+  geom_text(aes(label = n), vjust = 1.2, color = "white", fontface = "bold", size = 4) +
+  coord_flip() +
+  labs(
+    title = "Top 10 Start Stations Used by Casual Riders",
+    x = "Start Station",
+    y = "Number of Rides"
+  ) +
+  theme_minimal()
+```
+
+**Chart 4.4 - Casuals' Hotspots** This chart shows the most frequent starting locations for casual riders. While often assumed to reflect tourist-heavy zones, the data invites a closer look—these areas could also signal under-tapped local demand or habitual short-trip users. Either way, they present key opportunities for targeted engagement strategies.
+
+<br>
+<br>
+<br>
+
+```{r hourly-percentage-plot, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(here)
+
+# Define the path to your updated merged data (.rds) file
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+
+# Load the updated data
+updated_data <- readRDS(updated_file_path)
+
+# Extract hour and member type
+hourly_rides <- updated_data %>%
+  mutate(hour = hour(started_at)) %>%
+  group_by(hour, member_casual) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Calculate total rides for each member type
+total_rides <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Join total rides to hourly counts
+hourly_percentages <- hourly_rides %>%
+  left_join(total_rides, by = "member_casual") %>%
+  mutate(percentage = (n / total) * 100)
+
+ggplot(hourly_percentages %>% filter(!is.na(hour)),
+       aes(y = factor(hour), x = percentage, fill = member_casual)) +
+  geom_col(position = "dodge", width = 0.7) + # Adjust bar width
+  labs(
+    title = "Hourly Ride Percentage by Rider Type",
+    y = "Hour of Day",
+    x = "Percentage of Total Rides",
+    fill = "Rider Type"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99")) +
+  scale_y_discrete(limits = factor(0:23), expand = expansion(add = c(0.5, 0.5))) # Add padding to y-axis
+```
+
+**Chart 4.5- Hourly Distribution of Rides by Rider Type (Percentage of Total)** This chart displays the percentage of each rider type's total rides that occur within each hour of the day. The facets allow for a direct comparison of the hourly usage patterns between casual and member riders.
+
+<br>
+<br>
+<br>
+
+```{r daily-percentage-plot, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(here)
+
+# Define the path to your updated merged data (.rds) file
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+
+# Load the updated data
+updated_data <- readRDS(updated_file_path)
+
+# Extract day of the week and member type
+daily_rides <- updated_data %>%
+  mutate(day_of_week = wday(started_at, label = TRUE)) %>%
+  group_by(day_of_week, member_casual) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Calculate total rides for each member type (if we haven't already)
+total_rides <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Join total rides to daily counts
+daily_percentages <- daily_rides %>%
+  left_join(total_rides, by = "member_casual") %>%
+  mutate(percentage = (n / total) * 100)
+
+# Arrange days in the correct order for plotting
+daily_percentages <- daily_percentages %>%
+  mutate(day_of_week = factor(day_of_week, levels = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")))
+
+print(ggplot(daily_percentages %>% filter(!is.na(day_of_week)),
+       aes(y = day_of_week, x = percentage, fill = member_casual)) +
+  geom_col(position = "dodge", width = 0.7) +
+  labs(
+    title = "Daily Distribution of Rides by Rider Type (Percentage of Total)",
+    y = "Day of the Week",
+    x = "Percentage of Total Rides",
+    fill = "Rider Type"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99"))
+)
+```
+
+
+**Chart 4.6 - Daily Ride Percentage** This chart shows the percentage of each rider type's total rides that occur on each day of the week. By comparing the side-by-side bars for casual and member riders, we can observe how their usage patterns differ across the week.  For example, you can likely see that casual riders have a higher percentage of their total rides on weekends (Saturday and Sunday) compared to members, while members might show a more even distribution or a peak on weekdays.
+
+<br>
+<br>
+<br>
+
+```{r monthly-percentage-plot, echo=TRUE, results='show', message=FALSE, warning=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(here)
+
+# Define the path to your updated merged data (.rds) file
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+
+# Load the updated data
+updated_data <- readRDS(updated_file_path)
+
+# Extract month and member type
+monthly_rides <- updated_data %>%
+  mutate(month = month(started_at, label = TRUE)) %>%
+  group_by(month, member_casual) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Calculate total rides for each member type (if we haven't already)
+total_rides <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Join total rides to monthly counts
+monthly_percentages <- monthly_rides %>%
+  left_join(total_rides, by = "member_casual") %>%
+  mutate(percentage = (n / total) * 100)
+
+# Arrange months in order
+monthly_percentages <- monthly_percentages %>%
+  mutate(month = factor(month, levels = c("Jan", "Feb", "Mar", "Apr")))
+
+print(ggplot(monthly_percentages, aes(y = month, x = percentage, fill = member_casual)) +
+  geom_col(position = "dodge", width = 0.7) +
+  labs(
+    title = "Monthly Ride Percentage by Rider Type",
+    y = "Month",
+    x = "Percentage of Total Rides",
+    fill = "Rider Type"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99"))
+)
+```
+
+**Chart 4.7 - Monthly Ride Behavior by percentage** This chart illustrates the percentage of total rides for both casual and member riders across the months of January through April. As January and February are typically colder months in Chicago, we can observe a relatively lower percentage of rides for both groups during this period compared to the warmer months of March and April. The side-by-side bars allow us to compare the monthly distribution of ridership for each group.
+<br>
+<br>
+<br>

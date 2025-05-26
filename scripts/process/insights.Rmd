@@ -1,0 +1,329 @@
+---
+title: "Strategic Revenue Insights: Casual vs. Member Riders"
+output: 
+  html_document:
+    df_print: kable
+    css: styles.css
+
+---
+
+### 🔍 Strategic Revenue Insights: Casual vs. Member Riders
+
+<br>
+
+#### This analysis challenges the assumption that increasing membership alone drives profitability and raises operational concerns around unrestricted membership growth.
+
+<br>
+
+### I. Key Revenue Findings
+
+Supporting points:
+
+1. Member trip duration doesn't directly impact revenue (flat-rate model).  
+2. Member revenue scales only with the number of subscribers.  
+3. Casuals pay per ride—the more they ride, the more revenue.  
+4. The ride data clearly demonstrates a higher overall revenue contribution from casual riders when compared to annual members.
+
+<br>
+
+#### 🔹 Support for Point #4: "Casuals outperform members in revenue contribution"
+
+Although the dataset does not include direct financial figures, we can still derive meaningful revenue estimates by analyzing rider behavior and usage statistics, then mapping these patterns onto widely accepted pricing models used by bike-share systems globally.
+
+To estimate casual rider revenue, we do not need to know the exact number of users. Since casuals are charged per minute, we can simply multiply their total ride minutes by the standard per-minute rate.
+
+In contrast, estimating member revenue requires an indirect approach. By analyzing ride frequency and behavior patterns, we can approximate the number of active members. This estimated population is then multiplied by the annual membership fee to calculate total revenue.
+<br>
+<br>
+<br>
+
+#### REFERENCE TABLES and CHARTS
+<br>
+<br>
+
+```{r load-updated-data, include=FALSE}
+library(dplyr)
+# Load from .rds
+updated_data <- readRDS("D:/Capstone_Project/Cyclistic_v3/clean_2025/merged_2025_updated.rds")
+```
+
+```{r total-rides-minutes, echo=FALSE, message=FALSE, warning=FALSE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Summarize total rides and total ride minutes by rider type
+ride_totals <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(
+    Total_Rides = n(),
+    Total_Minutes = sum(ride_duration, na.rm = TRUE)
+  )
+
+# Display table
+ride_totals %>%
+  kable(caption = "Total Rides and Ride Minutes by Rider Type", format = "html", digits = 0) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+**Reference Table 1:**  Total Ride minutes by Casuals and Total Ride by Members
+<br>
+<br>
+<br>
+
+```{r member ride, echo=FALSE}
+# Member Rides Within 45 Minutes
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+member_ride_45 <- updated_data %>%
+  filter(member_casual == "member") %>%
+  summarise(
+    Total_Rides = n(),
+    Rides_Within_45min = sum(ride_duration <= 45, na.rm = TRUE),
+    Percent_Within_45min = round((Rides_Within_45min / Total_Rides) * 100, 2)
+  )
+
+# Show table
+member_ride_45 %>%
+  kable(caption = "Member Rides Within 45 Minutes", digits = 2) %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+
+```
+**Reference Table 2:**  Member Ride Behavior — This table shows that 98.88% of member rides are 45 minutes or less, highlighting how effectively members utilize the unlimited 45-minute daily ride benefit included in their subscription.
+<br>
+<br>
+<br>
+
+```{r peak hour plot, echo=FALSE, results='show', message=FALSE, warning=FALSE}
+library(ggplot2)
+library(dplyr)
+library(lubridate)
+library(here)
+
+# Define the path to your updated merged data (.rds) file
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+
+# Load the updated data
+updated_data <- readRDS(updated_file_path)
+
+# Extract hour and member type
+hourly_rides <- updated_data %>%
+  mutate(hour = hour(started_at)) %>%
+  group_by(hour, member_casual) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Calculate total rides for each member type
+total_rides <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Join total rides to hourly counts
+hourly_percentages <- hourly_rides %>%
+  left_join(total_rides, by = "member_casual") %>%
+  mutate(percentage = (n / total) * 100)
+
+ggplot(hourly_percentages %>% filter(!is.na(hour)),
+       aes(y = factor(hour), x = percentage, fill = member_casual)) +
+  geom_col(position = "dodge", width = 0.7) + # Adjust bar width
+  labs(
+    title = "Hourly Ride Percentage by Rider Type",
+    y = "Hour of Day",
+    x = "Percentage of Total Rides",
+    fill = "Rider Type"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99")) +
+  scale_y_discrete(limits = factor(0:23), expand = expansion(add = c(0.5, 0.5))) # Add padding to y-axis
+```
+
+**Reference Chart 1 – Hourly Distribution of Rides by Rider Type (Percentage of Total)**
+This chart illustrates the hourly breakdown of ride activity by rider type. Member usage shows clear peaks between 7–9 AM and 5–7 PM, aligning with typical commuting hours. A secondary rise appears between 12–2 PM, likely reflecting midday errands or lunch breaks. These patterns reinforce the assumption that many members use the system as part of a structured daily routine.
+<br>
+<br>
+<br>
+
+```{r peak day - plot, echo=FALSE, results='show', message=FALSE, warning=FALSE}
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(here)
+
+# Define the path to your updated merged data (.rds) file
+updated_file_path <- here("clean_2025", "merged_2025_updated.rds")
+
+# Load the updated data
+updated_data <- readRDS(updated_file_path)
+
+# Extract day of the week and member type
+daily_rides <- updated_data %>%
+  mutate(day_of_week = wday(started_at, label = TRUE)) %>%
+  group_by(day_of_week, member_casual) %>%
+  summarise(n = n(), .groups = 'drop')
+
+# Calculate total rides for each member type (if we haven't already)
+total_rides <- updated_data %>%
+  group_by(member_casual) %>%
+  summarise(total = n(), .groups = 'drop')
+
+# Join total rides to daily counts
+daily_percentages <- daily_rides %>%
+  left_join(total_rides, by = "member_casual") %>%
+  mutate(percentage = (n / total) * 100)
+
+# Arrange days in the correct order for plotting
+daily_percentages <- daily_percentages %>%
+  mutate(day_of_week = factor(day_of_week, levels = c("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat")))
+
+print(ggplot(daily_percentages %>% filter(!is.na(day_of_week)),
+       aes(y = day_of_week, x = percentage, fill = member_casual)) +
+  geom_col(position = "dodge", width = 0.7) +
+  labs(
+    title = "Daily Distribution of Rides by Rider Type (Percentage of Total)",
+    y = "Day of the Week",
+    x = "Percentage of Total Rides",
+    fill = "Rider Type"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("casual" = "#FF9999", "member" = "#66CC99"))
+)
+```
+
+**Reference Chart 2 – Daily Ride Percentage**
+This chart highlights member ride distribution across the week. Member activity remains consistently high on weekdays, reflecting common commuting behavior. However, weekend usage is also notable—this may indicate continued use for personal or leisure trips, or that some members maintain non-traditional work schedules and commute on weekends as well.
+<br>
+<br>
+<br>
+
+#### Estimating the Number of Members
+
+To estimate the number of subscribed members, we begin by analyzing observable behavioral patterns in the ride data.
+
+**Important Note:**
+
+The estimated number of members should not exceed the available fleet size of 5,824 bikes. If member demand surpasses this capacity, it would leave limited or no availability for casual riders—creating operational strain and reducing system accessibility.
+
+#### 1 Hourly Usage Patterns
+
+**How many times does a member ride per day?**
+
+Reference Chart 1 strongly supports the assumption that a typical member uses the system at least twice per day—once in the morning and once in the evening. This pattern aligns with common commuting routines and suggests that individual members frequently make multiple rides each day. There is also the possibility of more than two rides, as the system does not restrict usage; members may take additional trips during midday or for other errands.
+
+#### 2 Company Given Fact: 
+While many Cyclistic users ride for leisure, an estimated 30% use the bikes to commute to work on a daily basis. This benchmark—whether referring to 30% of total utilization or 30% of the fleet size (5,824 bikes)—helps anchor our assumptions about member behavior and system demand during peak hours.
+
+#### 3 Estimating Ride Frequency of Members
+
+This inference allows us to estimate the probable number of unique members in the system. Given:
+
+  - 713,073 total member rides  
+  - 120 days from Jan 1 to April 30
+  - 2 frequency of ride
+  
+| Ride Frequency/Day | Estimated Members                 |
+| ------------------ | --------------------------------- |
+| 2 rides/day        | 713,073 / (120 × 2) = **2,971**   |
+| 3 rides/day        | 713,073 / (120 × 3) = **1,980**   |
+| 3.5 rides/day      | 713,073 / (120 × 3.5) = **1,698** |
+
+
+#### 4 Estimating Active Members from Fleet Utilization
+
+If **30% of the fleet** is regularly used by members for commuting—based on Cyclistic’s internal benchmark—then we estimate:
+
+- **30% of 5,824 bikes = 1,747 members**
+
+This estimated member base aligns closely with the calculated range based on actual ride behavior.
+
+Given:
+- **713,073 total member rides** from January 1 to April 30 (120 days)
+
+We calculate the average ride frequency per member:
+
+\[
+\text{Ride Frequency} = \frac{713{,}073}{120 \times 1{,}747} \approx \textbf{3.4 rides/day}
+\]
+
+This suggests the **average member rides about 3.4 times per day**, which supports the observed commuting patterns. It also implies that many members are taking more than two rides daily—not just morning and evening commutes, but also midday trips or errands.
+
+
+---
+
+#### 5 Estimated Revenue Comparison
+
+With an estimated member count and known pricing structures, we can now compare revenue between rider types. Here, we use a normalized annual membership rate of **$120.00** and rate of **$0.15** per minute for single journey (casual) based on the average from Cyclistic's three comparable cities.
+
+
+**Note:** Casual rider revenue is scalable based on activity. Member revenue is fixed, regardless of usage.
+
+This highlights a key strategic consideration: **members ride more frequently and consume more fleet resources, yet generate less revenue per ride.**
+
+```{r Comparative revenue, echo=FALSE}
+library(knitr)
+library(kableExtra)
+
+revenue_table <- data.frame(
+  Category = c(
+    "Pricing Benchmark",
+    "Total Ride Minutes (Jan–Apr 2025)",
+    "Estimated Revenue (Jan–Apr 2025)",
+    "Annual Revenue Projection",
+    "Fleet Constraint",
+    "Cost-Revenue Disconnect"
+  ),
+  Casual_Riders = c(
+    "$0.15 per minute",
+    "13,604,428 minutes",
+    "~$2.04 million",
+    "~$5 million/year",
+    "Use available bikes when not occupied by members",
+    "Revenue grows with usage"
+  ),
+  Member_Riders = c(
+    "$120/year (~$0.33/day)",
+    "17,202,236 minutes",
+    "1,747 × $120 = ~$79,240/year (~$26,400 in 4 months)",
+    "~$79,240/year (capped)",
+    "Max 5,824 bikes; high membership risks saturation",
+    "Ride more, but revenue is fixed"
+  )
+)
+
+kable(revenue_table, format = "html", caption = "Revenue Comparison Summary: Casual vs. Member Riders") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+<br>
+<br>
+<br>
+
+**💡 Notes on Revenue Estimation**
+
+1. **Day passes were excluded** from this estimate. They represent a minority of users and do not significantly affect overall revenue patterns.
+
+2. The calculation **focuses on traditional bikes**. While **e-bike usage increases the per-minute rate for casuals**, the **annual member fee for e-bike access rises more moderately**, widening the revenue gap further.
+
+3. The **annual projection accounts for seasonality**, balancing summer peaks and winter lulls.
+
+4. **Even doubling the current subscriber base would not match the revenue generated by casual riders**—the pay-per-ride model scales more directly with usage.
+
+5. To match casual rider revenue, Cyclistic would need over **17,000 annual members**—an unrealistic target given the **fleet constraint of 5,824 bikes**.
+<br>
+<br>
+<br>
+
+### II. Additional Insights
+
+💡 **Strategic Insight**  
+“Casual riders operate under a pay-per-use model—revenue scales with activity.  
+Members are on a flat-rate model—revenue is fixed no matter how much they ride.  
+Converting high-usage casuals into members means trading scalable income for capped returns.”
+
+🧭 **Important Note on Member Value**  
+While members may not maximize short-term revenue, they hold **intangible value** as brand ambassadors. Their visibility throughout the city increases Cyclistic’s presence, credibility, and social proof.  
+Memberships should be **optimized—not eliminated**—ensuring they align with fleet capacity and strategic priorities.
+
+---
+
+#### 🚲 “Let rides—not loyalty—drive revenue”
+*A message for our walls—and our business model.*
+
